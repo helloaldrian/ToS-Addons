@@ -247,7 +247,7 @@ end
 local function TOOLTIPHELPER_BUILD_DROP_LIST()
 	local function chanceCompare(a, b)
 		if a.chnc ~= b.chnc then
-			return a.chnc < b.chnc
+			return a.chnc > b.chnc
 		else
 			return a.name < b.name
 		end
