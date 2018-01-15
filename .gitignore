@@ -1,8 +1,7 @@
-*.prefs
-.project
-*.rar
-*.ps1
-.buildpath
-ipfbuilder
-build
-dev-files/**
+*
+!.editorconfig
+!.gitignore
+!README.md
+!addons.json
+!data/tooltiphelper.ipf
+!data/resourcegauge.ipf
