@@ -11,6 +11,8 @@ TooltipHelper.config = {
     showCompletedCollections	 = true,
     showRecipeCustomTooltips	 = true,
     showRecipeHaveNeedCount		 = true,
+    showTranscendence			 = true,
+    showIdentification			 = true,
     showMagnumOpus				 = true,
     showItemLevel				 = true,
     showJournalStats			 = true,
@@ -650,6 +652,86 @@ function REPAIR_RECOMMENDATION(invItem)
     end
 end
 
+function REIDENTIFICATION(invItem)
+    if invItem.ItemType ~= "Equip" then
+	    return ""
+	end
+	
+	local itemCls = GetClassByType('Item', invItem.ClassID)
+
+	if itemCls.NeedRandomOption ~= 1 then
+		return "";
+	end
+
+	if IS_NEED_APPRAISED_ITEM(invItem) == true or IS_NEED_RANDOM_OPTION_ITEM(invItem) == true then 
+		return "";
+	end
+	
+	local itemRandomResetMaterial = nil;
+	local list, cnt = GetClassList("item_random_reset_material")
+	
+	if list == nil then
+		return;
+	end
+					
+	for i = 0, cnt - 1 do
+		local cls = GetClassByIndexFromList(list, i);
+		if cls == nil then
+			return;
+		end
+
+		if invItem.ClassType == cls.ItemType and invItem.ItemGrade == cls.ItemGrade then
+			itemRandomResetMaterial = cls
+		end
+	end
+
+	if itemRandomResetMaterial == nil then
+		return;
+	end
+	
+    local reIdentification = toIMCTemplate("Re-identify: ", labelColor)
+	
+	local materialItemSlot = itemRandomResetMaterial.MaterialItemSlot;
+	for i = 1, materialItemSlot do
+		local materialItemIndex = "MaterialItem_" ..i
+		local materialItemCount = 0
+		local materialItemCls = itemRandomResetMaterial[materialItemIndex]
+		local materialItem = GetClass("Item", materialItemCls)
+		local materialCountScp = itemRandomResetMaterial[materialItemIndex .."_SCP"]
+		if materialCountScp ~= "None" then
+			materialCountScp = _G[materialCountScp];
+			materialItemCount = materialCountScp(invItem);
+			reIdentification = reIdentification .. " " .. toIMCTemplate(addIcon(materialItemCount, materialItem.Icon), acutil.getItemRarityColor(materialItem))
+		else
+			return
+		end
+	end
+	
+    return "{nl}" .. reIdentification
+end
+
+function TRANSCENDENCE(invItem)
+	if invItem.ItemType ~= "Equip" then
+	    return ""
+	end
+	
+	if IS_TRANSCEND_ABLE_ITEM(invItem) == 0 then
+	    return ""
+	end
+	
+	if IS_NEED_APPRAISED_ITEM(invItem) == true or IS_NEED_RANDOM_OPTION_ITEM(invItem) == true then
+		return ""
+	end
+	
+	local text = toIMCTemplate("Upgrade: ") .. toIMCTemplate(GET_TRANSCEND_MAXCOUNT(invItem), commonColor) .. addIcon("", "icon_item_transcendence_Stone")
+	
+	if IS_TRANSCEND_ITEM(invItem) == 1 then
+		text = text .. " " .. toIMCTemplate("Extract: ") .. toIMCTemplate(tostring(GET_TRANSCEND_BREAK_ITEM_COUNT(invItem) * 10), commonColor) .. addIcon("", "icon_item_gem_elemental1"); 
+	end
+	
+	return "{nl}" .. toIMCTemplate("Transcendence - ") .. text
+end
+
 function CUBE_REROLL_PRICE(invItem)
 	if invItem.GroupName == "Cube" then
 		local rerollPrice = TryGet(invItem, "NumberArg1")
@@ -702,7 +784,14 @@ function CUSTOM_TOOLTIP_PROPS(tooltipFrame, mainFrameName, invItem, strArg, useS
     --Repair Recommendation
     local repairRecommendationLabel = renderLabel(REPAIR_RECOMMENDATION, TooltipHelper.config.showRepairRecommendation, invItem);
     
-    local headText = journalStatsLabel .. itemLevelLabel .. repairRecommendationLabel;
+    --Transcendence
+    local transcendLabel = renderLabel(TRANSCENDENCE, TooltipHelper.config.showTranscendence, invItem);
+    
+    --Re-identification
+	local reIdentificationLabel = renderLabel(REIDENTIFICATION, TooltipHelper.config.showIdentification, invItem);
+	
+    local headText = journalStatsLabel .. itemLevelLabel .. repairRecommendationLabel .. transcendLabel .. reIdentificationLabel;
+    
     table.insert(buffer,headText);
     
     --Collection
