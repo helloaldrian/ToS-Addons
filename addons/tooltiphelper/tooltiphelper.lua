@@ -32,6 +32,8 @@ TooltipHelper.config = (
 	end
 )()
 
+TooltipHelper.indexTbl = {};
+
 local function MAGNUM_OPUS_RECIPE_LOADER()
 	local status, xml = pcall(require, "xmlSimple");
 	if not status then
@@ -103,54 +105,15 @@ local npcColor = "FF4040"
 local squireColor = "40FF40"
 local unregisteredColor = "7B7B7B"
 local collectionIcon = "icon_item_box"
-TooltipHelper.indexTbl = {};
+local starIcon = "star_mark"
 
 local function toIMCTemplate(text, colorHex)
+	if colorHex == nil then colorHex = labelColor end;
     return "{ol}{ds}{#" .. colorHex .. "}".. text .. "{/}{/}{/}"    
 end
 
 local function addIcon(text, iconName)
 	return "{img " .. iconName .. " 24 24}" .. text .. "{/}"
-end
-
-function ITEM_TOOLTIP_BOSSCARD_HOOKED(tooltipFrame, invItem, strArg)
-    _G["ITEM_TOOLTIP_BOSSCARD_OLD"](tooltipFrame, invItem, strArg);
-    
-    local mainFrameName = 'bosscard'
-    
-    return CUSTOM_TOOLTIP_PROPS(tooltipFrame, mainFrameName, invItem, strArg);
-end
-
-function ITEM_TOOLTIP_EQUIP_HOOKED(tooltipFrame, invItem, strArg, useSubFrame)
-    _G["ITEM_TOOLTIP_EQUIP_OLD"](tooltipFrame, invItem, strArg, useSubFrame);
-    
-    local mainFrameName = 'equip_main'
-    
-    if useSubFrame == "usesubframe" or useSubFrame == "usesubframe_recipe" then 
-        mainFrameName = 'equip_sub'
-    end
-    
-    return CUSTOM_TOOLTIP_PROPS(tooltipFrame, mainFrameName, invItem, strArg, useSubFrame);
-end
-
-function ITEM_TOOLTIP_ETC_HOOKED(tooltipFrame, invItem, strArg, useSubFrame)
-    _G["ITEM_TOOLTIP_ETC_OLD"](tooltipFrame, invItem, strArg, useSubFrame);
-    
-    local mainFrameName = 'etc'
-    
-    if useSubFrame == "usesubframe" or useSubFrame == "usesubframe_recipe" then
-        mainFrameName = "etc_sub"
-    end
-    
-    return CUSTOM_TOOLTIP_PROPS(tooltipFrame, mainFrameName, invItem, strArg, useSubFrame);  
-end
-
-function ITEM_TOOLTIP_GEM_HOOKED(tooltipFrame, invItem, strArg)
-    _G["ITEM_TOOLTIP_GEM_OLD"](tooltipFrame, invItem, strArg);
-    
-    local mainFrameName = 'gem'
-    
-    return CUSTOM_TOOLTIP_PROPS(tooltipFrame, mainFrameName, invItem, strArg);
 end
 
 local function manuallyCount(cls, invItem)
@@ -292,7 +255,58 @@ local function TOOLTIPHELPER_BUILD_DROP_LIST()
 	end
 end
 
-function JOURNAL_STATS_CUSTOM_TOOLTIP_TEXT(invItem)
+function ITEM_TOOLTIP_BOSSCARD_HOOKED(tooltipFrame, invItem, strArg)
+    _G["ITEM_TOOLTIP_BOSSCARD_OLD"](tooltipFrame, invItem, strArg);
+    
+    local mainFrameName = 'bosscard'
+    
+    return _CUSTOM_TOOLTIP_PROPS(tooltipFrame, mainFrameName, invItem, strArg);
+end
+
+function ITEM_TOOLTIP_EQUIP_HOOKED(tooltipFrame, invItem, strArg, useSubFrame)
+    _G["ITEM_TOOLTIP_EQUIP_OLD"](tooltipFrame, invItem, strArg, useSubFrame);
+    
+    local mainFrameName = 'equip_main'
+    
+    if useSubFrame == "usesubframe" or useSubFrame == "usesubframe_recipe" then 
+        mainFrameName = 'equip_sub'
+    end
+    
+    return _CUSTOM_TOOLTIP_PROPS(tooltipFrame, mainFrameName, invItem, strArg, useSubFrame);
+end
+
+function ITEM_TOOLTIP_ETC_HOOKED(tooltipFrame, invItem, strArg, useSubFrame)
+    _G["ITEM_TOOLTIP_ETC_OLD"](tooltipFrame, invItem, strArg, useSubFrame);
+    
+    local mainFrameName = 'etc'
+    
+    if useSubFrame == "usesubframe" or useSubFrame == "usesubframe_recipe" then
+        mainFrameName = "etc_sub"
+    end
+    
+    return _CUSTOM_TOOLTIP_PROPS(tooltipFrame, mainFrameName, invItem, strArg, useSubFrame);  
+end
+
+function ITEM_TOOLTIP_GEM_HOOKED(tooltipFrame, invItem, strArg)
+    _G["ITEM_TOOLTIP_GEM_OLD"](tooltipFrame, invItem, strArg);
+    
+    local mainFrameName = 'gem'
+    
+    return _CUSTOM_TOOLTIP_PROPS(tooltipFrame, mainFrameName, invItem, strArg);
+end
+
+function _CUSTOM_TOOLTIP_PROPS(tooltipFrame, mainFrameName, invItem, strArg, useSubFrame)
+	if useSubFrame == nil then useSubFrame = "" end
+		
+	if marktioneerex ~= nil then
+		CUSTOM_TOOLTIP_PROPS(tooltipFrame, mainFrameName, invItem, strArg, useSubFrame);
+		return marktioneerex.addMarketPrice(tooltipFrame, mainFrameName, invItem, strArg, useSubFrame);
+    else
+ 	    return CUSTOM_TOOLTIP_PROPS(tooltipFrame, mainFrameName, invItem, strArg, useSubFrame);  
+    end
+end
+
+function JOURNAL_STATS(invItem)
 	local text = ""
 	local color = labelColor;
 	if invItem.Journal then
@@ -316,7 +330,7 @@ function JOURNAL_STATS_CUSTOM_TOOLTIP_TEXT(invItem)
     return toIMCTemplate(text, color)
 end
 
-function COLLECTION_ADD_CUSTOM_TOOLTIP_TEXT(invItem)
+function COLLECTION_SECTION(invItem)
 	if TooltipHelper.indexTbl["Collection"] == nil then
 		TOOLTIPHELPER_BUILD_COLLECTION_LIST();
 	end
@@ -379,7 +393,7 @@ function COLLECTION_ADD_CUSTOM_TOOLTIP_TEXT(invItem)
 	return table.concat(partOfCollections,"{nl}")
 end
 
-function RECIPE_ADD_CUSTOM_TOOLTIP_TEXT(invItem)
+function RECIPE_SECTION(invItem)
 	if TooltipHelper.indexTbl["Recipe"] == nil then
 		TOOLTIPHELPER_BUILD_RECIPE_LIST()
 	end
@@ -584,13 +598,13 @@ function MAGNUM_OPUS_TRANSMUTES_INTO(invItem)
 	return text;
 end
 
-function RENDER_MAGNUM_OPUS_SECTION(invItem)
+function MAGNUM_OPUS_SECTION(invItem)
 	local transmuteInto = MAGNUM_OPUS_TRANSMUTES_INTO(invItem);
 	local transmuteFrom = MAGNUM_OPUS_TRANSMUTED_FROM(invItem);
 	return transmuteInto .. transmuteFrom; 
 end
 
-function RENDER_ITEM_DROP_SECTION(invItem)
+function ITEM_DROP_SECTION(invItem)
 	if TooltipHelper.indexTbl["Drops"] == nil then
 		TOOLTIPHELPER_BUILD_DROP_LIST();
 	end
@@ -611,87 +625,56 @@ function RENDER_ITEM_DROP_SECTION(invItem)
 	return toIMCTemplate(text, labelColor)
 end
 
-function RENDER_CUBE_REROLL_PRICE(tooltipFrame, buffer, invItem)
+function ITEM_LEVEL(invItem)
+	if invItem.ItemType ~= "Equip" then
+	    return ""
+end
+
+	if invItem.ItemStar > 0 then
+		return toIMCTemplate(invItem.ItemStar .. addIcon("", "star_mark"), acutil.getItemRarityColor(invItem))
+    end
+end
+
+function REPAIR_RECOMMENDATION(invItem)
+    if invItem.ItemType ~= "Equip" or invItem.Reinforce_Type ~= 'Moru' then
+    	return ""
+    end
+    
+    local _, squireResult = ITEMBUFF_NEEDITEM_Squire_Repair(nil, invItem)
+    if invItem.Dur < invItem.MaxDur then
+        local repairRecommendation = toIMCTemplate("NPC ", npcColor)
+        if squireResult * tonumber(TooltipHelper.config.squireRepairPerKit) < GET_REPAIR_PRICE(invItem, 0) then
+            repairRecommendation = toIMCTemplate("Squire ", squireColor)
+        end
+        return toIMCTemplate("Repair at: ", labelColor) .. repairRecommendation
+    end
+end
+
+function CUBE_REROLL_PRICE(invItem)
 	if invItem.GroupName == "Cube" then
 		local rerollPrice = TryGet(invItem, "NumberArg1")
 		if rerollPrice > 0 then
-			table.insert(buffer, addIcon("", invItem.Icon) .. toIMCTemplate("Reroll Price: " .. GetCommaedText(rerollPrice), labelColor))
-		end
-	end
-end
-
-function RENDER_JOURNAL_STATS(tooltipFrame, invItem)
-	local journalStatsLabel = ""
-	if TooltipHelper.config.showJournalStats then
-		journalStatsLabel = JOURNAL_STATS_CUSTOM_TOOLTIP_TEXT(invItem)
-    end
-    return journalStatsLabel
-end
-
-function RENDER_ITEM_LEVEL(tooltipFrame, invItem)
-	local itemLevelLabel = ""
-	if TooltipHelper.config.showItemLevel then
-        if invItem.ItemType == "Equip" then
-			itemLevelLabel = toIMCTemplate("Item Stars: ", labelColor) .. toIMCTemplate(invItem.ItemStar .. " ", acutil.getItemRarityColor(invItem))
-        end
-    end
-    return itemLevelLabel
-end
-
-function RENDER_REPAIR_RECOMMENDATION(tooltipFrame, invItem)
-	local repairRecommendationLabel = ""
-	if TooltipHelper.config.showRepairRecommendation then
-        if invItem.ItemType == "Equip" and invItem.Reinforce_Type == 'Moru' then
-            local _, squireResult = ITEMBUFF_NEEDITEM_Squire_Repair(nil, invItem)
-            if invItem.Dur < invItem.MaxDur then
-                local repairRecommendation = toIMCTemplate("NPC ", npcColor)
-                if squireResult * tonumber(TooltipHelper.config.squireRepairPerKit) < GET_REPAIR_PRICE(invItem, 0) then
-                    repairRecommendation = toIMCTemplate("Squire ", squireColor)
-                end
-                repairRecommendationLabel = toIMCTemplate("Repair at: ", labelColor) .. repairRecommendation
-            end
-        end
-    end
-    return repairRecommendationLabel
-end
-
-function RENDER_COLLECTION_DETAILS(tooltipFrame, buffer, invItem, text)
-	if TooltipHelper.config.showCollectionCustomTooltips then
-        text = COLLECTION_ADD_CUSTOM_TOOLTIP_TEXT(invItem);
-        if text ~= "" then
-            table.insert(buffer,text)
-        end
-    end
-end
-
-function RENDER_RECIPE_DETAILS(tooltipFrame, buffer, invItem, text)
-	if TooltipHelper.config.showRecipeCustomTooltips then 
-        text = RECIPE_ADD_CUSTOM_TOOLTIP_TEXT(invItem)
-        if text ~= "" then
-            table.insert(buffer,text)    
-        end
-    end
-end
-
-function RENDER_MAGNUM_OPUS(tooltipFrame, buffer, invItem, text)
-	if TooltipHelper.config.showMagnumOpus then 
-        text = RENDER_MAGNUM_OPUS_SECTION(invItem)
-        if text ~= "" then
-            table.insert(buffer,text)    
-        end
-    end
-end
-
-function RENDER_ITEM_DROP(tooltipFrame, buffer, invItem, text)
-	if TooltipHelper.config.showItemDrop then
-		text = RENDER_ITEM_DROP_SECTION(invItem);
-		if text ~= "" then
-			table.insert(buffer,text);
+			return addIcon("", invItem.Icon) .. toIMCTemplate("Reroll Price: " .. GetCommaedText(rerollPrice), acutil.getItemRarityColor(invItem))
 		end
 	end
 end
 
 function CUSTOM_TOOLTIP_PROPS(tooltipFrame, mainFrameName, invItem, strArg, useSubFrame)
+	local function render(fn, config, buffer, invItem, text)
+		if config and fn ~= nil then
+			text = fn(invItem);
+			if text ~= "" then
+				table.insert(buffer,text);
+			end
+		end
+	end
+	
+	local function renderLabel(fn, config, invItem)
+		if config and fn ~= nil then
+			return fn(invItem) or "";
+		end
+	end
+
     local gBox = GET_CHILD(tooltipFrame, mainFrameName,'ui::CGroupBox');
     
     local yPos = gBox:GetY() + gBox:GetHeight();
@@ -705,39 +688,39 @@ function CUSTOM_TOOLTIP_PROPS(tooltipFrame, mainFrameName, invItem, strArg, useS
 	sub_addinfo:SetOffset(sub_addinfo:GetX(),tooltipFrame:GetHeight()/2);
 
     local buffer = {};
-    local text = ""
+    local text = "";
     
     --Reroll Price
-    RENDER_CUBE_REROLL_PRICE(tooltipFrame, buffer, invItem);
+    render(CUBE_REROLL_PRICE, true, buffer, invItem, text);
     
     --Journal stats
-    local journalStatsLabel = RENDER_JOURNAL_STATS(tooltipFrame, invItem);
+    local journalStatsLabel = renderLabel(JOURNAL_STATS, TooltipHelper.config.showJournalStats, invItem);
     
     --iLvl
-    local itemLevelLabel = RENDER_ITEM_LEVEL(tooltipFrame, invItem);
+    local itemLevelLabel = renderLabel(ITEM_LEVEL, TooltipHelper.config.showItemLevel, invItem);
     
     --Repair Recommendation
-    local repairRecommendationLabel = RENDER_REPAIR_RECOMMENDATION(tooltipFrame, invItem);
+    local repairRecommendationLabel = renderLabel(REPAIR_RECOMMENDATION, TooltipHelper.config.showRepairRecommendation, invItem);
     
     local headText = journalStatsLabel .. itemLevelLabel .. repairRecommendationLabel;
     table.insert(buffer,headText);
     
     --Collection
-    RENDER_COLLECTION_DETAILS(tooltipFrame, buffer, invItem, text)
+    render(COLLECTION_SECTION, TooltipHelper.config.showCollectionCustomTooltips, buffer, invItem, text)
       
     --Recipe
-    RENDER_RECIPE_DETAILS(tooltipFrame, buffer, invItem, text)
+    render(RECIPE_SECTION, TooltipHelper.config.showRecipeCustomTooltips, buffer, invItem, text)
    
     local rightText = ""
     local rightBuffer = {}
     --Magnum Opus
-    RENDER_MAGNUM_OPUS(tooltipFrame, rightBuffer, invItem, rightText)
+    render(MAGNUM_OPUS_SECTION, TooltipHelper.config.showMagnumOpus, rightBuffer, invItem, rightText)
     
 	--Item Drop
-	RENDER_ITEM_DROP(tooltipFrame, rightBuffer, invItem, rightText);
+	render(ITEM_DROP_SECTION, TooltipHelper.config.showItemDrop, rightBuffer, invItem, rightText);
 
     if #buffer == 1 and invItem.ItemType == "Equip" then
-        text = journalStatsLabel .. itemLevelLabel .. repairRecommendationLabel
+        text = headText
     else
         text = table.concat(buffer,"{nl}")
         rightText = table.concat(rightBuffer,"{nl}")
