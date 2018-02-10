@@ -1,10 +1,16 @@
 local acutil = require('acutil');
+local cache = dofile('../addons/devloader/tooltiphelper_cache.lua');
 
-_G['ADDONS'] = _G['ADDONS'] or {};
-TooltipHelper = _G["ADDONS"]["TOOLTIPHELPER"] or {};
+if not TooltipHelper then
+	_G['ADDONS'] = _G['ADDONS'] or {};
+	TooltipHelper = _G["ADDONS"]["TOOLTIPHELPER"] or {}
+	TooltipHelper.indexTbl = {}
+end
 
-TooltipHelper.configFile = '../addons/tooltiphelper/tooltiphelper.json'
-TooltipHelper.recipeFile = "../addons/tooltiphelper/recipe_puzzle.xml";
+TooltipHelper.version = "3.0.0"
+
+TooltipHelper.configFile 	 = "../addons/tooltiphelper/tooltiphelper.json";
+TooltipHelper.magnumOpusJSON = "../addons/tooltiphelper/magnumopus.json";
 
 TooltipHelper.config = {
     showCollectionCustomTooltips = true,
@@ -15,61 +21,25 @@ TooltipHelper.config = {
     showIdentification			 = true,
     showMagnumOpus				 = true,
     showJournalStats			 = true,
-	showItemDrop				 = true
+	showItemDrop				 = true,
+	version						 = TooltipHelper.version
 }
 
-TooltipHelper.config = (
-	function ()
-		local file, err = acutil.loadJSON(TooltipHelper.configFile, TooltipHelper.config);
-		if err then 
-		    acutil.saveJSON(TooltipHelper.configFile, TooltipHelper.config);
-		else 
-		    TooltipHelper.config = file; 
-		end
-		
-		return TooltipHelper.config
-	end
-)()
+TooltipHelper.magnumOpusRecipes = {}
 
-TooltipHelper.indexTbl = {};
+TooltipHelper.config = 
+	cache.configureData(
+		TooltipHelper.configFile, 
+		TooltipHelper.config, 
+		TooltipHelper.version, 
+		nil)
 
-local function MAGNUM_OPUS_RECIPE_LOADER()
-	local status, xml = pcall(require, "xmlSimple");
-	if not status then
-		acutil.log("Unable to load xmlSimple")
-		return
-	end
-
-	local recipeXml = xml.newParser():loadFile(TooltipHelper.recipeFile);
-
-	if recipeXml == nil then
-		acutil.log("Magnum Opus recipe file not found");
-		return
-	end
-	
-	TooltipHelper.magnumOpusRecipes = {};
-	local recipes = recipeXml["Recipe_Puzzle"]:children();
-
-	for i=1,#recipes do
-		local recipe = recipes[i];
-		local targetItemClassName = recipe["@TargetItem"];
-		local ingredients = recipe:children();
-		TooltipHelper.magnumOpusRecipes[targetItemClassName] = {};
-		for j=1,#ingredients do
-			local ingredient = ingredients[j];
-			local ingredientItemClassName = ingredient["@Name"];
-			local row = ingredient["@Row"];
-			local column = ingredient["@Col"];
-			table.insert(TooltipHelper.magnumOpusRecipes[targetItemClassName], {name = ingredientItemClassName,
-			                                                                    row = tonumber(row),
-			                                                                    col = tonumber(column)});
-		end
-	end
-end
-
-if not TooltipHelper.magnumOpusRecipes then
-	MAGNUM_OPUS_RECIPE_LOADER();
-end
+TooltipHelper.magnumOpusRecipes = 
+	cache.configureData(
+		TooltipHelper.magnumOpusJSON, 
+		TooltipHelper.magnumOpusRecipes, 
+		nil, 
+		cache.loadMagnumOpus)
 
 function TOOLTIPHELPER_ON_INIT(addon, frame)
 	TooltipHelper.addon = addon;
@@ -129,129 +99,6 @@ local function manuallyCount(cls, invItem)
         end
     end
     return count;
-end
-
-local function TOOLTIPHELPER_BUILD_COLLECTION_LIST()
-	TooltipHelper.indexTbl["Collection"] = {};
-	local typeTbl = TooltipHelper.indexTbl["Collection"];
-	local clsList, cnt = GetClassList("Collection");
-	for i = 0 , cnt - 1 do
-		local cls = GetClassByIndexFromList(clsList, i);
-		local countingTbl = {};
-		local j = 0;
-		while true do
-			j = j + 1;
-			local itemName = TryGetProp(cls,"ItemName_" .. j);
-
-			if itemName == nil or itemName == "None" then
-				break
-			end
-
-			if typeTbl[itemName] == nil then
-				typeTbl[itemName] = {};
-			end
-
-			if not contains(countingTbl, itemName) then
-				table.insert(countingTbl, itemName);
-				table.insert(typeTbl[itemName], {idx = i});
-			end
-		end
-	end
-end
-
-local function TOOLTIPHELPER_BUILD_RECIPE_LIST()
-	TooltipHelper.indexTbl["Recipe"] = {types = {"Recipe", "Recipe_ItemCraft", "ItemTradeShop"}};
-	local typeTbl = TooltipHelper.indexTbl["Recipe"];
-	for _, classType in ipairs(typeTbl["types"]) do
-		local clsList, cnt = GetClassList(classType);
-		for i = 0 , cnt - 1 do
-			local cls = GetClassByIndexFromList(clsList, i);
-			local resultItem = GetClass("Item", cls.TargetItem);
-			if resultItem ~= nil and resultItem.NotExist ~= 'YES' and resultItem.ItemType ~= 'Unused' then
-				local countingTbl = {};
-				for j = 1, 5 do
-					local item = GetClass("Item", cls["Item_" .. j .. "_1"]);
-
-					if item == "None" or item == nil or item.NotExist == 'YES' or item.ItemType == 'Unused' or item.GroupName == 'Unused' then
-						break;
-					end
-
-					local itemName = item.ClassName;
-
-					if typeTbl[itemName] == nil then
-						typeTbl[itemName] = {};
-					end
-
-					if not contains(countingTbl, itemName) then
-						local grade = resultItem.ItemGrade;
-						if grade == 'None' or grade == nil then
-							grade = 0;
-						end
-						table.insert(countingTbl, itemName);
-						table.insert(typeTbl[itemName], {idx = i,
-						                                 pos = j,
-						                                 grade = grade,
-						                                 classType = classType,
-						                                 resultItemName = dictionary.ReplaceDicIDInCompStr(resultItem.Name)
-						                                 });
-					end
-				end
-			end
-		end
-	end
-	for k, t in pairs(typeTbl) do
-		if k ~= "types" then
-			table.sort(t, compare);
-		end
-	end
-end
-
-local function TOOLTIPHELPER_BUILD_DROP_LIST()
-	local function chanceCompare(a, b)
-		if a.chnc ~= b.chnc then
-			return a.chnc > b.chnc
-		else
-			return a.name < b.name
-		end
-	end
-
-	TooltipHelper.indexTbl["Drops"] = {};
-	local typeTbl = TooltipHelper.indexTbl["Drops"];
-	local clsList, cnt = GetClassList("Monster");
-	for i = 0 , cnt - 1 do
-		local cls = GetClassByIndexFromList(clsList, i);
-		if cls.GroupName ~= "Item" then
-			local dropID = cls.DropItemList;
-			if dropID ~= nil and dropID ~= "None" then
-				dropID = "MonsterDropItemList_" .. dropID;
-				local monName = dictionary.ReplaceDicIDInCompStr(cls.Name);
-				for j = 0, GetClassCount(dropID) - 1 do
-					local dropIES = GetClassByIndex(dropID, j)
-					local itemName = dropIES.ItemClassName;
-					local chnc = dropIES.DropRatio;
-					local newMob = true;
-
-					if typeTbl[itemName] == nil then
-						typeTbl[itemName] = {};
-					end
-
-					for k = 1, #typeTbl[itemName] do
-						if typeTbl[itemName][k]["name"] == monName and typeTbl[itemName][k]["chnc"] == chnc then
-							newMob = false;
-							break
-						end
-					end
-
-					if newMob then
-						table.insert(typeTbl[itemName], {name = monName, chnc = chnc})
-					end
-				end
-			end
-		end
-	end
-	for _, t in pairs(typeTbl) do
-		table.sort(t, chanceCompare);
-	end
 end
 
 function ITEM_TOOLTIP_BOSSCARD_HOOKED(tooltipFrame, invItem, strArg)
@@ -331,7 +178,7 @@ end
 
 function COLLECTION_SECTION(invItem)
 	if TooltipHelper.indexTbl["Collection"] == nil then
-		TOOLTIPHELPER_BUILD_COLLECTION_LIST();
+		cache.collectionList()
 	end
 
 	local subTbl = TooltipHelper.indexTbl["Collection"][invItem.ClassName];
@@ -394,7 +241,7 @@ end
 
 function RECIPE_SECTION(invItem)
 	if TooltipHelper.indexTbl["Recipe"] == nil then
-		TOOLTIPHELPER_BUILD_RECIPE_LIST()
+		cache.recipeList()
 	end
 
 	local subTbl = TooltipHelper.indexTbl["Recipe"][invItem.ClassName];
@@ -605,7 +452,7 @@ end
 
 function ITEM_DROP_SECTION(invItem)
 	if TooltipHelper.indexTbl["Drops"] == nil then
-		TOOLTIPHELPER_BUILD_DROP_LIST();
+		cache.dropList();
 	end
 
 	local subTbl = TooltipHelper.indexTbl["Drops"][invItem.ClassName];
@@ -834,9 +681,22 @@ end
 
 function TOOLTIPHELPER_INIT()
 	if not TooltipHelper.isLoaded then
-		TOOLTIPHELPER_BUILD_COLLECTION_LIST();
-		TOOLTIPHELPER_BUILD_RECIPE_LIST();
-		TOOLTIPHELPER_BUILD_DROP_LIST();
+		if TooltipHelper.indexTbl["Drops"] == nil then
+			cache.dropList();
+		end
+		
+		if TooltipHelper.indexTbl["Collection"] == nil then
+			cache.collectionList();
+		end
+		
+		if TooltipHelper.indexTbl["Recipe"] == nil then
+			cache.recipeList()
+		end
+		
+		if TooltipHelper.indexTbl["Premium"] == nil then
+			cache.tpItems();
+		end
+		
 		acutil.setupHook(ITEM_TOOLTIP_EQUIP_HOOKED, "ITEM_TOOLTIP_EQUIP");
 		acutil.setupHook(ITEM_TOOLTIP_ETC_HOOKED, "ITEM_TOOLTIP_ETC");
 		acutil.setupHook(ITEM_TOOLTIP_BOSSCARD_HOOKED, "ITEM_TOOLTIP_BOSSCARD");

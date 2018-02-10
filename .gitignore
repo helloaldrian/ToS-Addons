@@ -3,5 +3,6 @@
 !.gitignore
 !README.md
 !addons.json
+!addons/tooltiphelper/tooltiphelper**.**
 !data/tooltiphelper.ipf
 !data/resourcegauge.ipf
