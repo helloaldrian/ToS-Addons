@@ -22,6 +22,7 @@ TooltipHelper.config = {
     showIdentification			 = true,
     showMagnumOpus				 = true,
     showJournalStats			 = true,
+    showMedalExchange			 = true,
 	showItemDrop				 = true,
 	version						 = TooltipHelper.version
 }
