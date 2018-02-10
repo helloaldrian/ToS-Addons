@@ -1,4 +1,5 @@
 local acutil = require('acutil');
+local util = dofile("../addons/devloader/tooltiphelper_util.lua")
 local cache = dofile('../addons/devloader/tooltiphelper_cache.lua');
 
 if not TooltipHelper then
@@ -46,59 +47,6 @@ function TOOLTIPHELPER_ON_INIT(addon, frame)
 	TooltipHelper.frame = frame;
 	
 	TOOLTIPHELPER_INIT();
-end
-
-local function contains(table, val)
-    for k, v in ipairs(table) do
-        if v == val then
-            return true
-        end
-    end
-    return false
-end
-
-local function compare(a, b)
-    if a.grade < b.grade then
-        return true
-    elseif a.grade > b.grade then
-        return false
-    else
-        return a.resultItemName < b.resultItemName
-    end
-end
-
-local labelColor = "9D8C70"
-local completeColor = "00FF00"
-local commonColor = "FFFFFF"
-local npcColor = "FF4040"
-local squireColor = "40FF40"
-local unregisteredColor = "7B7B7B"
-local collectionIcon = "icon_item_box"
-local starIcon = "star_mark"
-
-local function toIMCTemplate(text, colorHex)
-	if colorHex == nil then colorHex = labelColor end;
-    return "{ol}{ds}{#" .. colorHex .. "}".. text .. "{/}{/}{/}"    
-end
-
-local function addIcon(text, iconName)
-	return "{img " .. iconName .. " 24 24}" .. text .. "{/}"
-end
-
-local function manuallyCount(cls, invItem)
-    local count = 0;
-    for i = 1 , 9 do
-        local item = GetClass("Item", cls["ItemName_" .. i]);
-            
-        if item == "None" or item == nil then
-            break;
-        end
-                
-        if item.ClassName == invItem.ClassName then
-            count = count + 1;
-        end
-    end
-    return count;
 end
 
 function ITEM_TOOLTIP_BOSSCARD_HOOKED(tooltipFrame, invItem, strArg)
@@ -154,26 +102,20 @@ end
 
 function JOURNAL_STATS(invItem)
 	local text = ""
-	local color = labelColor;
-	if invItem.Journal then
-		local curScore, maxScore, curLv, curPoint, maxPoint = 0, 0, 0, 0, 0;
-		local itemObtainCount = GetItemObtainCount(GetMyPCObject(), invItem.ClassID);
-		curScore, maxScore = _GET_ADVENTURE_BOOK_POINT_ITEM(invItem.ItemType == 'Equip', itemObtainCount);
-		curLv, curPoint, maxPoint = GET_ADVENTURE_BOOK_ITEM_OBTAIN_COUNT_INFO(invItem.ItemType == 'Equip', itemObtainCount);
-		
-		if curScore == 0 then
-			text = "Not registered!{nl}"			
-			color = labelColor;
-		elseif curScore == maxScore then
-			text = "Max Points Acquired!{nl}";
-			color = completeColor;
-		else
-			text = "Journal Points Acquired: (" .. curScore .. "/" .. maxScore .. "){nl}";
-			text = text .. "Progress for Max Points: (" .. curPoint .. "/" .. maxPoint .. "){nl}";
-			color = commonColor;
-		end 
-	end
-    return toIMCTemplate(text, color)
+	if not (invItem.Journal) then return util.toIMCTemplate(text) end
+	local curScore, maxScore, curLv, curPoint, maxPoint = 0, 0, 0, 0, 0;
+	local itemObtainCount = GetItemObtainCount(GetMyPCObject(), invItem.ClassID);
+	curScore, maxScore = _GET_ADVENTURE_BOOK_POINT_ITEM(invItem.ItemType == 'Equip', itemObtainCount);
+	curLv, curPoint, maxPoint = GET_ADVENTURE_BOOK_ITEM_OBTAIN_COUNT_INFO(invItem.ItemType == 'Equip', itemObtainCount);
+	
+	if curScore == 0 then return util.toIMCTemplate("Not registered!{nl}")
+	elseif curScore == maxScore then return util.toIMCTemplate("Max Points Acquired!{nl}", util.completeColor)
+	else
+		text = "Journal Points Acquired: (" .. curScore .. "/" .. maxScore .. "){nl}";
+		text = text .. "Progress for Max Points: (" .. curPoint .. "/" .. maxPoint .. "){nl}";
+		return util.toIMCTemplate(text);
+	end 
+    return util.toIMCTemplate(text)
 end
 
 function COLLECTION_SECTION(invItem)
@@ -207,7 +149,7 @@ function COLLECTION_SECTION(invItem)
 		end
 
 		local text = "";
-		local neededCount = manuallyCount(cls, item);
+		local neededCount = util.manuallyCount(cls, item);
 		local collCount = 0;
 		local collName = string.gsub(dictionary.ReplaceDicIDInCompStr(cls.Name), "Collection: ", "")
 
@@ -217,21 +159,17 @@ function COLLECTION_SECTION(invItem)
 			neededCount = info:GetNeedItemCount(item.ClassID);
 		end
 
-		text = addIcon(collName .. " " .. collCount .. "/" .. neededCount .. " ", collectionIcon)
+		text = util.addIcon(collName .. " " .. collCount .. "/" .. neededCount .. " ", util.collectionIcon)
 
-		if isCompleted then
-			if TooltipHelper.config.showCompletedCollections then
-				text = toIMCTemplate(text, completeColor)
-			else 
-				text = ""
-			end
+		if isCompleted and TooltipHelper.config.showCompletedCollections then
+			text = util.toIMCTemplate(text, util.completeColor)
 		elseif hasRegisteredCollection then
-			text = toIMCTemplate(text, commonColor)
+			text = util.toIMCTemplate(text, util.commonColor)
 		else
-			text = toIMCTemplate(text, unregisteredColor)
+			text = util.toIMCTemplate(text, util.unregisteredColor)
 		end
 
-		if not contains(partOfCollections, text) then
+		if not util.contains(partOfCollections, text) then
 			table.insert(partOfCollections, text);
 		end
 	end
@@ -277,26 +215,26 @@ function RECIPE_SECTION(invItem)
 		local isCrafted = (curScore >= maxScore);
 		local text = "";
 		local materialCountText = "";
-		local color = commonColor;
+		local color = util.commonColor;
 
 		if TooltipHelper.config.showRecipeHaveNeedCount then
 			materialCountText = haveCount .. "/" .. needCount;
-			local color = unregisteredColor;
+			local color = util.unregisteredColor;
 			if not isRegistered then
-				color = unregisteredColor;
+				color = util.unregisteredColor;
 			elseif (invItem.ItemType ~= "Recipe") and (haveCount >= needCount) then
-				color = completeColor;
+				color = util.completeColor;
 			end
-			materialCountText = toIMCTemplate(materialCountText, color)
+			materialCountText = util.toIMCTemplate(materialCountText, color)
 		end
 
-		itemName = addIcon(itemName, recipeIcon);
-		text = toIMCTemplate(itemName, acutil.getItemRarityColor(resultItem))
+		itemName = util.addIcon(itemName, recipeIcon);
+		text = util.toIMCTemplate(itemName, acutil.getItemRarityColor(resultItem))
 
 		if isCrafted then
-			text = text .. addIcon("", resultItem.Icon)
+			text = text .. util.addIcon("", resultItem.Icon)
 		elseif not isRegistered then
-			text = toIMCTemplate(itemName, unregisteredColor)
+			text = util.toIMCTemplate(itemName, util.unregisteredColor)
 		end
 
 		text = text .. " " .. materialCountText
@@ -305,11 +243,11 @@ function RECIPE_SECTION(invItem)
 			local recipeData = marktioneerex.getMinimumData(recipeClassID);
 			local newLine = "{nl}    ";
 			if (recipeData) then 
-				text = text .. newLine .. addIcon("", recipeIcon) .. " ".. toIMCTemplate(GetCommaedText(recipeData.price), labelColor);
+				text = text .. newLine .. util.addIcon("", recipeIcon) .. " ".. util.toIMCTemplate(GetCommaedText(recipeData.price));
 			end
 			local resultItemData = marktioneerex.getMinimumData(resultItem.ClassID);
 			if (resultItemData) then 
-				local resultPrice = " " .. addIcon("", resultItem.Icon) .. " ".. toIMCTemplate(GetCommaedText(resultItemData.price), labelColor);
+				local resultPrice = " " .. util.addIcon("", resultItem.Icon) .. " ".. util.toIMCTemplate(GetCommaedText(resultItemData.price));
 				if (recipeData) then
 					text = text .. resultPrice
 				else
@@ -350,7 +288,7 @@ function MAGNUM_OPUS_TRANSMUTED_FROM(invItem)
 			for className, quantity in pairs(ingredients) do
 				local item = GetClass("Item", className)
 				local itemName = dictionary.ReplaceDicIDInCompStr(item.Name)
-				text = toIMCTemplate(quantity .. "x" .. addIcon(itemName, item.Icon), labelColor) .. newLine
+				text = util.toIMCTemplate(quantity .. "x" .. util.addIcon(itemName, item.Icon)) .. newLine
 			end
 			
 			text = text .. "  "
@@ -396,7 +334,7 @@ function MAGNUM_OPUS_TRANSMUTED_FROM(invItem)
 	end
 	
 	if text ~= "" then
-		text = toIMCTemplate("Transmuted From:{nl} ", labelColor) .. text
+		text = util.toIMCTemplate("Transmuted From:{nl} ") .. text
 	end
 	
 	return text;
@@ -405,40 +343,33 @@ end
 function MAGNUM_OPUS_TRANSMUTES_INTO(invItem)
 	local text = ""
 	
-	local targetItems = {}
+	local results = {}
 	local invItemClassName = invItem.ClassName
 	
 	for k, v in pairs(TooltipHelper.magnumOpusRecipes) do
-		local targetItemClassName = k;
+		local resultItem = k;
 		local items = v
 		
-		for i = 1, #items do
+		for i = 1, #items do repeat 
 			local itemClass = items[i]["name"]
-			
-			if itemClass == invItemClassName then
-				if targetItems[targetItemClassName] == nil then
-					targetItems[targetItemClassName] = 1
-				else
-					local oldVal = targetItems[targetItemClassName]
-					targetItems[targetItemClassName] = oldVal + 1
-				end
-			end
-		end
+			if itemClass ~= invItemClassName then break end
+			local oldVal = results[resultItem]
+			results[resultItem] = (oldVal == nil) and 1 or oldVal + 1
+		until true end
 	end
 	
-	
-	for k, v in pairs(targetItems) do
+	for k, v in pairs(results) do
 		local className = k
 		local qty = v
 		local result = GetClass("Item", className)
 		local itemName = dictionary.ReplaceDicIDInCompStr(result.Name)
-		text = text .. toIMCTemplate("  " .. qty .. "x", labelColor) 
-					.. toIMCTemplate(addIcon("= 1 ", invItem.Icon), labelColor) 
-					.. toIMCTemplate(addIcon(itemName, result.Icon) .. "{nl}", labelColor)
+		text = text .. util.toIMCTemplate("  " .. qty .. "x") 
+					.. util.toIMCTemplate(util.addIcon("= 1 ", invItem.Icon)) 
+					.. util.toIMCTemplate(util.addIcon(itemName, result.Icon) .. "{nl}")
 	end
 	
 	if text ~= "" then
-		text = toIMCTemplate("Magnum Opus{nl} Transmutes Into:{nl}", labelColor) .. text .. "{nl}";
+		text = util.toIMCTemplate("Magnum Opus{nl} Transmutes Into:{nl}") .. text .. "{nl}";
 	end
 	
 	return text;
@@ -454,21 +385,37 @@ function ITEM_DROP_SECTION(invItem)
 	if TooltipHelper.indexTbl["Drops"] == nil then
 		cache.dropList();
 	end
-
+	
 	local subTbl = TooltipHelper.indexTbl["Drops"][invItem.ClassName];
 	if subTbl == nil then
 		return ""
 	end
-
-	local text = "Drops From:";
+	
+	local mapHeader = "";
+	local text = "Drops From:{nl}";
+	local dropListDisplay = {}
+	local mapName = ""
 	for i = 1, #subTbl do
+		if i == 6 then break end; --Display top 5 results
+		mapName = subTbl[i]["map"];
+		if mapName ~= nil and mapName ~= mapHeader then
+			table.insert(dropListDisplay, string.format("%s", mapName))		
+		end
+		
 		local dropRate = subTbl[i]["chnc"]/100;
 		if dropRate ~= 0 then
-			text = text .. string.format("{nl}%s: %.2f%%", subTbl[i]["name"], dropRate);
+			local template = string.format("    %s: %.2f%%", subTbl[i]["name"], dropRate);
+			table.insert(dropListDisplay, template)
 		end
 	end
+	
+	if #dropListDisplay == 0 then
+		text = ""
+	else
+		text = text .. table.concat(dropListDisplay, "{nl}")
+	end
 
-	return toIMCTemplate(text, labelColor)
+	return util.toIMCTemplate(text)
 end
 
 function ITEM_LEVEL(invItem)
@@ -477,23 +424,17 @@ function ITEM_LEVEL(invItem)
 end
 
 	if invItem.ItemStar > 0 then
-		return toIMCTemplate(invItem.ItemStar .. addIcon("", "star_mark"), acutil.getItemRarityColor(invItem))
+		return util.toIMCTemplate(invItem.ItemStar .. util.addIcon("", "star_mark"), acutil.getItemRarityColor(invItem))
     end
 end
 
 function REIDENTIFICATION(invItem)
-    if invItem.ItemType ~= "Equip" then
-	    return ""
-	end
-	
 	local itemCls = GetClassByType('Item', invItem.ClassID)
-
-	if itemCls.NeedRandomOption ~= 1 then
-		return "";
-	end
-
-	if IS_NEED_APPRAISED_ITEM(invItem) == true or IS_NEED_RANDOM_OPTION_ITEM(invItem) == true then 
-		return "";
+    if invItem.ItemType ~= "Equip" 
+    or itemCls.NeedRandomOption ~= 1
+    or IS_NEED_APPRAISED_ITEM(invItem) == true 
+    or IS_NEED_RANDOM_OPTION_ITEM(invItem) == true then
+	    return ""
 	end
 	
 	local itemRandomResetMaterial = nil;
@@ -518,7 +459,7 @@ function REIDENTIFICATION(invItem)
 		return;
 	end
 	
-    local reIdentification = toIMCTemplate("Re-identify: ", labelColor)
+    local reIdentification = util.toIMCTemplate("Re-identify: ")
 	
 	local materialItemSlot = itemRandomResetMaterial.MaterialItemSlot;
 	for i = 1, materialItemSlot do
@@ -527,65 +468,44 @@ function REIDENTIFICATION(invItem)
 		local materialItemCls = itemRandomResetMaterial[materialItemIndex]
 		local materialItem = GetClass("Item", materialItemCls)
 		local materialCountScp = itemRandomResetMaterial[materialItemIndex .."_SCP"]
-		if materialCountScp ~= "None" then
-			materialCountScp = _G[materialCountScp];
-			materialItemCount = materialCountScp(invItem);
-			reIdentification = reIdentification .. " " .. toIMCTemplate(addIcon(materialItemCount, materialItem.Icon), acutil.getItemRarityColor(materialItem))
-		else
-			return
-		end
+		
+		if materialCountScp == "None" then return end
+		
+		materialCountScp = _G[materialCountScp];
+		materialItemCount = materialCountScp(invItem);
+		reIdentification = reIdentification .. " " .. util.toIMCTemplate(util.addIcon(materialItemCount, materialItem.Icon), acutil.getItemRarityColor(materialItem))
 	end
 	
-    return "{nl}" .. reIdentification
+    return reIdentification
 end
 
 function TRANSCENDENCE(invItem)
-	if invItem.ItemType ~= "Equip" then
+	if invItem.ItemType ~= "Equip"
+	or IS_TRANSCEND_ABLE_ITEM(invItem) == 0
+	or IS_NEED_APPRAISED_ITEM(invItem) == true 
+	or IS_NEED_RANDOM_OPTION_ITEM(invItem) == true then
 	    return ""
 	end
 	
-	if IS_TRANSCEND_ABLE_ITEM(invItem) == 0 then
-	    return ""
-	end
-	
-	if IS_NEED_APPRAISED_ITEM(invItem) == true or IS_NEED_RANDOM_OPTION_ITEM(invItem) == true then
-		return ""
-	end
-	
-	local text = toIMCTemplate("Upgrade: ") .. toIMCTemplate(GET_TRANSCEND_MAXCOUNT(invItem), commonColor) .. addIcon("", "icon_item_transcendence_Stone")
+	local text = util.toIMCTemplate(util.addIcon(GET_TRANSCEND_MAXCOUNT(invItem), "icon_item_transcendence_Stone") .. " to upgrade", util.commonColor)
 	
 	if IS_TRANSCEND_ITEM(invItem) == 1 then
-		text = text .. " " .. toIMCTemplate("Extract: ") .. toIMCTemplate(tostring(GET_TRANSCEND_BREAK_ITEM_COUNT(invItem) * 10), commonColor) .. addIcon("", "icon_item_gem_elemental1"); 
+		text = text .. util.toIMCTemplate(" / " .. util.addIcon(tostring(GET_TRANSCEND_BREAK_ITEM_COUNT(invItem) * 10) .. " extracted", "icon_item_gem_elemental1"), util.commonColor); 
 	end
 	
-	return "{nl}" .. toIMCTemplate("Transcendence - ") .. text
+	return util.toIMCTemplate("Transcendence: ") .. text
 end
 
 function CUBE_REROLL_PRICE(invItem)
-	if invItem.GroupName == "Cube" then
-		local rerollPrice = TryGet(invItem, "NumberArg1")
-		if rerollPrice > 0 then
-			return addIcon("", invItem.Icon) .. toIMCTemplate("Reroll Price: " .. GetCommaedText(rerollPrice), acutil.getItemRarityColor(invItem))
-		end
+	if invItem.GroupName ~= "Cube" then return end
+	
+	local rerollPrice = TryGet(invItem, "NumberArg1")
+	if rerollPrice > 0 then
+		return util.addIcon("", invItem.Icon) .. util.toIMCTemplate("Reroll Price: " .. GetCommaedText(rerollPrice), acutil.getItemRarityColor(invItem))
 	end
 end
 
 function CUSTOM_TOOLTIP_PROPS(tooltipFrame, mainFrameName, invItem, strArg, useSubFrame)
-	local function render(fn, config, buffer, invItem, text)
-		if config and fn ~= nil then
-			text = fn(invItem);
-			if text ~= "" then
-				table.insert(buffer,text);
-			end
-		end
-	end
-	
-	local function renderLabel(fn, config, invItem)
-		if config and fn ~= nil then
-			return fn(invItem) or "";
-		end
-	end
-
     local gBox = GET_CHILD(tooltipFrame, mainFrameName,'ui::CGroupBox');
     
     local yPos = gBox:GetY() + gBox:GetHeight();
@@ -602,34 +522,34 @@ function CUSTOM_TOOLTIP_PROPS(tooltipFrame, mainFrameName, invItem, strArg, useS
     local text = "";
     
     --Reroll Price
-    render(CUBE_REROLL_PRICE, true, buffer, invItem, text);
+    util.render(CUBE_REROLL_PRICE, true, buffer, invItem, text);
     
     --Journal stats
-    local journalStatsLabel = renderLabel(JOURNAL_STATS, TooltipHelper.config.showJournalStats, invItem);
+    util.renderLabel(JOURNAL_STATS, TooltipHelper.config.showJournalStats, invItem, labels);
     
     --Transcendence
-    local transcendLabel = renderLabel(TRANSCENDENCE, TooltipHelper.config.showTranscendence, invItem);
+    util.renderLabel(TRANSCENDENCE, TooltipHelper.config.showTranscendence, invItem, labels);
     
     --Re-identification
-	local reIdentificationLabel = renderLabel(REIDENTIFICATION, TooltipHelper.config.showIdentification, invItem);
+	util.renderLabel(REIDENTIFICATION, TooltipHelper.config.showIdentification, invItem, labels);
 	
-    local headText = journalStatsLabel .. itemLevelLabel .. repairRecommendationLabel .. transcendLabel .. reIdentificationLabel;
+    local headText = table.concat(labels,"{nl}")
     
     table.insert(buffer,headText);
     
     --Collection
-    render(COLLECTION_SECTION, TooltipHelper.config.showCollectionCustomTooltips, buffer, invItem, text)
+    util.render(COLLECTION_SECTION, TooltipHelper.config.showCollectionCustomTooltips, buffer, invItem, text)
       
     --Recipe
-    render(RECIPE_SECTION, TooltipHelper.config.showRecipeCustomTooltips, buffer, invItem, text)
+    util.render(RECIPE_SECTION, TooltipHelper.config.showRecipeCustomTooltips, buffer, invItem, text)
    
     local rightText = ""
     local rightBuffer = {}
     --Magnum Opus
-    render(MAGNUM_OPUS_SECTION, TooltipHelper.config.showMagnumOpus, rightBuffer, invItem, rightText)
+    util.render(MAGNUM_OPUS_SECTION, TooltipHelper.config.showMagnumOpus, rightBuffer, invItem, rightText)
     
 	--Item Drop
-	render(ITEM_DROP_SECTION, TooltipHelper.config.showItemDrop, rightBuffer, invItem, rightText);
+	util.render(ITEM_DROP_SECTION, TooltipHelper.config.showItemDrop, rightBuffer, invItem, rightText);
 
     if #buffer == 1 and invItem.ItemType == "Equip" then
         text = headText
