@@ -15,8 +15,6 @@ TooltipHelper.config = {
     showIdentification			 = true,
     showMagnumOpus				 = true,
     showJournalStats			 = true,
-    showRepairRecommendation	 = true,
-	squireRepairPerKit			 = 200, -- 160 is the minimum for the Squire to break even
 	showItemDrop				 = true
 }
 
@@ -636,21 +634,6 @@ end
     end
 end
 
-function REPAIR_RECOMMENDATION(invItem)
-    if invItem.ItemType ~= "Equip" or invItem.Reinforce_Type ~= 'Moru' then
-    	return ""
-    end
-    
-    local _, squireResult = ITEMBUFF_NEEDITEM_Squire_Repair(nil, invItem)
-    if invItem.Dur < invItem.MaxDur then
-        local repairRecommendation = toIMCTemplate("NPC ", npcColor)
-        if squireResult * tonumber(TooltipHelper.config.squireRepairPerKit) < GET_REPAIR_PRICE(invItem, 0) then
-            repairRecommendation = toIMCTemplate("Squire ", squireColor)
-        end
-        return toIMCTemplate("Repair at: ", labelColor) .. repairRecommendation
-    end
-end
-
 function REIDENTIFICATION(invItem)
     if invItem.ItemType ~= "Equip" then
 	    return ""
@@ -776,9 +759,6 @@ function CUSTOM_TOOLTIP_PROPS(tooltipFrame, mainFrameName, invItem, strArg, useS
     
     --Journal stats
     local journalStatsLabel = renderLabel(JOURNAL_STATS, TooltipHelper.config.showJournalStats, invItem);
-    
-    --Repair Recommendation
-    local repairRecommendationLabel = renderLabel(REPAIR_RECOMMENDATION, TooltipHelper.config.showRepairRecommendation, invItem);
     
     --Transcendence
     local transcendLabel = renderLabel(TRANSCENDENCE, TooltipHelper.config.showTranscendence, invItem);
