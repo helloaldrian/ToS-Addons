@@ -14,7 +14,6 @@ TooltipHelper.config = {
     showTranscendence			 = true,
     showIdentification			 = true,
     showMagnumOpus				 = true,
-    showItemLevel				 = true,
     showJournalStats			 = true,
     showRepairRecommendation	 = true,
 	squireRepairPerKit			 = 200, -- 160 is the minimum for the Squire to break even
@@ -777,9 +776,6 @@ function CUSTOM_TOOLTIP_PROPS(tooltipFrame, mainFrameName, invItem, strArg, useS
     
     --Journal stats
     local journalStatsLabel = renderLabel(JOURNAL_STATS, TooltipHelper.config.showJournalStats, invItem);
-    
-    --iLvl
-    local itemLevelLabel = renderLabel(ITEM_LEVEL, TooltipHelper.config.showItemLevel, invItem);
     
     --Repair Recommendation
     local repairRecommendationLabel = renderLabel(REPAIR_RECOMMENDATION, TooltipHelper.config.showRepairRecommendation, invItem);
