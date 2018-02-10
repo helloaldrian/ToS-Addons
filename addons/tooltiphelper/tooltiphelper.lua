@@ -428,6 +428,22 @@ end
     end
 end
 
+function TP_MEDAL_EXCHANGE(invItem)
+	if TooltipHelper.indexTbl["Premium"] == nil then
+		cache.tpItems();
+	end
+	
+	local subTbl = TooltipHelper.indexTbl["Premium"][invItem.ClassName];
+	if subTbl == nil then return ""	end
+	
+	local clsList, cnt = GetClassList("recycle_shop");
+	for i = 1, #subTbl do
+		if invItem.ClassName == subTbl[i]["name"] then
+			return util.toIMCTemplate("TP Medal Exchange: ")..util.addIcon(util.toIMCTemplate(subTbl[i]["sellPrice"], acutil.getItemRarityColor(invItem)), 'icon_item_recyclemedal')
+		end
+	end
+end
+
 function REIDENTIFICATION(invItem)
 	local itemCls = GetClassByType('Item', invItem.ClassID)
     if invItem.ItemType ~= "Equip" 
@@ -532,6 +548,9 @@ function CUSTOM_TOOLTIP_PROPS(tooltipFrame, mainFrameName, invItem, strArg, useS
     
     --Re-identification
 	util.renderLabel(REIDENTIFICATION, TooltipHelper.config.showIdentification, invItem, labels);
+	
+	--TP Exchange
+	util.renderLabel(TP_MEDAL_EXCHANGE, TooltipHelper.config.showMedalExchange, invItem, labels);
 	
     local headText = table.concat(labels,"{nl}")
     

@@ -182,6 +182,27 @@ local tooltiphelper_cache = {
 				table.insert(typeTbl[itemName], {idx = i});
 			end
 		end
+	end,
+	
+	tpItems = function()
+		TooltipHelper.indexTbl["Premium"] = {};
+		local typeTbl = TooltipHelper.indexTbl["Premium"];
+		local clsList, cnt = GetClassList("recycle_shop");
+		for i = 0 , cnt - 1 do repeat
+			local cls = GetClassByIndexFromList(clsList, i);
+			local sellPrice = cls.SellPrice
+			if sellPrice == nil or sellPrice == 0 then break end;
+			local countingTbl = {};
+			
+			local itemName = cls.ClassName;
+			if typeTbl[itemName] == nil then
+				typeTbl[itemName] = {};
+			end
+			
+			if tthUtil.contains(countingTbl, itemName) then break end
+			table.insert(countingTbl, itemName);
+			table.insert(typeTbl[itemName], {idx = i, name = itemName, sellPrice = sellPrice} );
+		until true end
 	end
 }
 
