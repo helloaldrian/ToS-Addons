@@ -496,6 +496,28 @@ function REIDENTIFICATION(invItem)
     return reIdentification
 end
 
+function AWAKENING(invItem)
+	if invItem.ItemType ~= "Equip" then return "" end
+	
+	local needItem, needCount = GET_ITEM_AWAKENING_PRICE(invItem)
+	local itemCls = GetClass('Item', needItem);
+	
+	if needCount == 0 then return "" end 
+	
+	local awakening = util.toIMCTemplate("Awakening Costs: ") .. util.toIMCTemplate(util.addIcon(needCount,itemCls.Icon),util.commonColor) 
+	return awakening
+end
+
+function NPC_SELL_PRICE(invItem)
+
+	local itemProp = geItemTable.GetPropByName(invItem.ClassName);
+    if itemProp ~= nil and itemProp:IsEnableShopTrade() == false then return "" end
+	
+	local sellPrice = geItemTable.GetSellPrice(itemProp)
+	if not (sellPrice > 0) then return "" end
+	return util.toIMCTemplate("NPC Sell Price: ") .. util.toIMCTemplate(util.addIcon(tostring(sellPrice), 'icon_item_silver'), util.commonColor)
+end
+
 function TRANSCENDENCE(invItem)
 	if invItem.ItemType ~= "Equip"
 	or IS_TRANSCEND_ABLE_ITEM(invItem) == 0
@@ -538,6 +560,9 @@ function CUSTOM_TOOLTIP_PROPS(tooltipFrame, mainFrameName, invItem, strArg, useS
     local buffer = {};
     local text = "";
     
+    --NPC Sell Price
+    util.renderLabel(NPC_SELL_PRICE, true, invItem, labels);
+    
     --Reroll Price
     util.render(CUBE_REROLL_PRICE, true, buffer, invItem, text);
     
@@ -553,6 +578,9 @@ function CUSTOM_TOOLTIP_PROPS(tooltipFrame, mainFrameName, invItem, strArg, useS
 	--TP Exchange
 	util.renderLabel(TP_MEDAL_EXCHANGE, TooltipHelper.config.showMedalExchange, invItem, labels);
 	
+	--Awakening
+	util.renderLabel(AWAKENING, true, invItem, labels)
+	
     local headText = table.concat(labels,"{nl}")
     
     table.insert(buffer,headText);
@@ -565,6 +593,7 @@ function CUSTOM_TOOLTIP_PROPS(tooltipFrame, mainFrameName, invItem, strArg, useS
    
     local rightText = ""
     local rightBuffer = {}
+    
     --Magnum Opus
     util.render(MAGNUM_OPUS_SECTION, TooltipHelper.config.showMagnumOpus, rightBuffer, invItem, rightText)
     
