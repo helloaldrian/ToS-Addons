@@ -6,7 +6,9 @@ local tooltiphelper_util = {
 	squireColor = "40FF40",
 	unregisteredColor = "7B7B7B",
 	collectionIcon = "icon_item_box",
-	starIcon = "star_mark"
+	starIcon = "star_mark",
+	tab = "     ",
+	tthMainFrameName = 'tth_parent_container'
 }
 
 function tooltiphelper_util.contains(table,val)

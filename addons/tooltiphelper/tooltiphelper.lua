@@ -1,47 +1,42 @@
 local acutil = require('acutil');
-local util = dofile("../addons/devloader/tooltiphelper_util.lua")
-local cache = dofile('../addons/devloader/tooltiphelper_cache.lua');
+local util = dofile('../data/addon_d/tooltiphelper/tooltiphelper_util.lua')
+local magnum_opus = dofile('../data/addon_d/tooltiphelper/tooltiphelper_magnumopus.lua')
+local cache = dofile('../data/addon_d/tooltiphelper/tooltiphelper_cache.lua')
+local custom_equip = dofile('../data/addon_d/tooltiphelper/tooltiphelper_custom_equip.lua')
+
 
 if not TooltipHelper then
 	_G['ADDONS'] = _G['ADDONS'] or {};
 	TooltipHelper = _G["ADDONS"]["TOOLTIPHELPER"] or {}
 	TooltipHelper.indexTbl = {}
+	TooltipHelper.magnumOpusRecipes = {}
 end
 
 TooltipHelper.version = "3.0.0"
 
 TooltipHelper.configFile 	 = "../addons/tooltiphelper/tooltiphelper.json";
-TooltipHelper.magnumOpusJSON = "../addons/tooltiphelper/magnumopus.json";
 
 TooltipHelper.config = {
-    showCollectionCustomTooltips = true,
+    showCollections 			 = true,
     showCompletedCollections	 = true,
-    showRecipeCustomTooltips	 = true,
+    showRerollPrice				 = true,
+    showRecipes	 				 = true,
     showRecipeHaveNeedCount		 = true,
+    showAwakening				 = true,
     showTranscendence			 = true,
     showIdentification			 = true,
     showMagnumOpus				 = true,
     showJournalStats			 = true,
     showMedalExchange			 = true,
-	showItemDrop				 = true,
+	showItemDrops				 = true,
 	version						 = TooltipHelper.version
 }
-
-TooltipHelper.magnumOpusRecipes = {}
 
 TooltipHelper.config = 
 	cache.configureData(
 		TooltipHelper.configFile, 
 		TooltipHelper.config, 
-		TooltipHelper.version, 
-		nil)
-
-TooltipHelper.magnumOpusRecipes = 
-	cache.configureData(
-		TooltipHelper.magnumOpusJSON, 
-		TooltipHelper.magnumOpusRecipes, 
-		nil, 
-		cache.loadMagnumOpus)
+		TooltipHelper.version)
 
 function TOOLTIPHELPER_ON_INIT(addon, frame)
 	TooltipHelper.addon = addon;
@@ -55,7 +50,7 @@ function ITEM_TOOLTIP_BOSSCARD_HOOKED(tooltipFrame, invItem, strArg)
     
     local mainFrameName = 'bosscard'
     
-    return _CUSTOM_TOOLTIP_PROPS(tooltipFrame, mainFrameName, invItem, strArg);
+    return DRAW_TTH_SECTION(tooltipFrame, invItem, strArg, nil, mainFrameName, true, MAKE_TTH_INV_ITEM_DATA(invItem))
 end
 
 function ITEM_TOOLTIP_EQUIP_HOOKED(tooltipFrame, invItem, strArg, useSubFrame)
@@ -67,7 +62,9 @@ function ITEM_TOOLTIP_EQUIP_HOOKED(tooltipFrame, invItem, strArg, useSubFrame)
         mainFrameName = 'equip_sub'
     end
     
-    return _CUSTOM_TOOLTIP_PROPS(tooltipFrame, mainFrameName, invItem, strArg, useSubFrame);
+	local tthYPos = DRAW_TTH_SECTION(tooltipFrame, invItem, strArg, useSubFrame, mainFrameName, false, MAKE_TTH_INV_ITEM_DATA(invItem))
+    
+	return tooltipFrame:GetY();
 end
 
 function ITEM_TOOLTIP_ETC_HOOKED(tooltipFrame, invItem, strArg, useSubFrame)
@@ -79,7 +76,9 @@ function ITEM_TOOLTIP_ETC_HOOKED(tooltipFrame, invItem, strArg, useSubFrame)
         mainFrameName = "etc_sub"
     end
     
-    return _CUSTOM_TOOLTIP_PROPS(tooltipFrame, mainFrameName, invItem, strArg, useSubFrame);  
+	local tthYPos = DRAW_TTH_SECTION(tooltipFrame, invItem, strArg, useSubFrame, mainFrameName, false, MAKE_TTH_INV_ITEM_DATA(invItem))
+    
+	return tooltipFrame:GetY(); 
 end
 
 function ITEM_TOOLTIP_GEM_HOOKED(tooltipFrame, invItem, strArg)
@@ -87,44 +86,95 @@ function ITEM_TOOLTIP_GEM_HOOKED(tooltipFrame, invItem, strArg)
     
     local mainFrameName = 'gem'
     
-    return _CUSTOM_TOOLTIP_PROPS(tooltipFrame, mainFrameName, invItem, strArg);
+    return DRAW_TTH_SECTION(tooltipFrame, invItem, strArg, nil, mainFrameName, true, MAKE_TTH_INV_ITEM_DATA(invItem))
 end
 
-function _CUSTOM_TOOLTIP_PROPS(tooltipFrame, mainFrameName, invItem, strArg, useSubFrame)
+function TTH_DRAW_EQUIP_COMMON_TOOLTIP(tooltipFrame, invItem, mainFrameName, isForgery)
+	return _G["DRAW_EQUIP_COMMON_TOOLTIP_OLD"](tooltipFrame, invItem, util.tthMainFrameName, isForgery);
+end
+
+function DRAW_TTH_SECTION(tooltipFrame, invItem, strArg, useSubFrame, mainFrameName, isTthSubFrame, text, rightText)
 	if useSubFrame == nil then useSubFrame = "" end
+	local mainFrameGBox = GET_CHILD(tooltipFrame, mainFrameName);
+    
+	local tthMainFrameName = util.tthMainFrameName
+    local skinName = isTthSubFrame and "test_Item_tooltip_equip_sub" or ""
+    local isCard = (mainFrameName == 'bosscard') and 100 or 0
+    local offSetX = isTthSubFrame and mainFrameGBox:GetX() + mainFrameGBox:GetWidth() or 0 
+    local offSetY = isTthSubFrame and isCard or mainFrameGBox:GetHeight()
+    
+    local marktioneerFrame = isTthSubFrame and tthMainFrameName or mainFrameName
+    
+	local tthTextGBox = nil;
+	if isTthSubFrame then
+		tthTextGBox = tooltipFrame:CreateOrGetControl('groupbox', tthMainFrameName, 0, 0, 0, 0);
+	else
+		tthTextGBox = mainFrameGBox:CreateOrGetControl('groupbox', tthMainFrameName, 0, 0, 0, 0);
+	end
+    tolua.cast(tthTextGBox, "ui::CGroupBox");
+    tthTextGBox:SetSkinName(skinName);
+    tthTextGBox:SetMargin(5,10,5,10);
+    tthTextGBox:SetGravity(ui.LEFT, ui.TOP)
+    tthTextGBox:SetOffset(offSetX, offSetY)
+
+    local textSection = tthTextGBox:CreateOrGetControl("richtext", 'tth_text_content', 0, 0, 0, 0);
+    tolua.cast(textSection, "ui::CRichText");
+    textSection:SetText(text);
+	textSection:SetMargin(10,10,15,20);
+    
+    local tthGboxWidth = textSection:GetWidth();
+    local tthGboxHeight = textSection:GetHeight() + 10;
+    
+    if rightText ~= "" then
+    	local rightTextCtrl = tthTextGBox:CreateOrGetControl("richtext", 'tth_text_content2', 0,0,0,0);
+	    tolua.cast(rightTextCtrl, "ui::CRichText");
+	    rightTextCtrl:SetText(rightText)
+	    rightTextCtrl:SetMargin(10,10,15,20);
+	    rightTextCtrl:SetGravity(ui.RIGHT, ui.TOP)
+	    text, rightText = "", ""
+	    
+		tthGboxWidth = math.max(tthGboxWidth + rightTextCtrl:GetWidth()+50, rightTextCtrl:GetWidth()+50);
+		tthGboxHeight = math.max(tthGboxHeight, rightTextCtrl:GetHeight())
+    else
+    	tthGboxWidth = mainFrameGBox:GetOriginalWidth()
+    end
+    
+    tthTextGBox:Resize(tthGboxWidth, tthGboxHeight+20)
+    
+  	if not isTthSubFrame then
+  		mainFrameGBox:Resize(math.max(410,tthGboxWidth), mainFrameGBox:GetHeight()+tthTextGBox:GetHeight())
+  	end
 		
 	if marktioneerex ~= nil then
-		CUSTOM_TOOLTIP_PROPS(tooltipFrame, mainFrameName, invItem, strArg, useSubFrame);
-		return marktioneerex.addMarketPrice(tooltipFrame, mainFrameName, invItem, strArg, useSubFrame);
-    else
- 	    return CUSTOM_TOOLTIP_PROPS(tooltipFrame, mainFrameName, invItem, strArg, useSubFrame);  
+		marktioneerex.addMarketPrice(tooltipFrame, marktioneerFrame, invItem, strArg, useSubFrame);
     end
+    
+    return mainFrameGBox:GetHeight() + mainFrameGBox:GetY()
 end
 
 function JOURNAL_STATS(invItem)
-	local text = ""
-	if not (invItem.Journal) then return util.toIMCTemplate(text) end
+	if not invItem.Journal then return "" end
+	
 	local curScore, maxScore, curLv, curPoint, maxPoint = 0, 0, 0, 0, 0;
 	local itemObtainCount = GetItemObtainCount(GetMyPCObject(), invItem.ClassID);
 	curScore, maxScore = _GET_ADVENTURE_BOOK_POINT_ITEM(invItem.ItemType == 'Equip', itemObtainCount);
 	curLv, curPoint, maxPoint = GET_ADVENTURE_BOOK_ITEM_OBTAIN_COUNT_INFO(invItem.ItemType == 'Equip', itemObtainCount);
-	
-	if curScore == 0 then return util.toIMCTemplate("Not registered!{nl}")
-	elseif curScore == maxScore then return util.toIMCTemplate("Max Points Acquired!{nl}", util.completeColor)
+	local score = curScore.."/"..maxScore.."{nl}"
+	local text = util.toIMCTemplate("Adventure Journal: ")
+	if curScore == maxScore then 
+		return text..util.toIMCTemplate(maxScore.." points", util.completeColor)
 	else
-		text = "Journal Points Acquired: (" .. curScore .. "/" .. maxScore .. "){nl}";
-		text = text .. "Progress for Max Points: (" .. curPoint .. "/" .. maxPoint .. "){nl}";
-		return util.toIMCTemplate(text);
+		return text..util.toIMCTemplate(curScore.."/"..maxScore.." points", util.commonColor)
 	end 
-    return util.toIMCTemplate(text)
 end
 
 function COLLECTION_SECTION(invItem)
-	if TooltipHelper.indexTbl["Collection"] == nil then
+	local cachedCollections = TooltipHelper.indexTbl["Collection"]
+	if cachedCollections == nil then
 		cache.collectionList()
 	end
 
-	local subTbl = TooltipHelper.indexTbl["Collection"][invItem.ClassName];
+	local subTbl = cachedCollections[invItem.ClassName];
 	if subTbl == nil then
 		return ""
 	end
@@ -179,11 +229,12 @@ function COLLECTION_SECTION(invItem)
 end
 
 function RECIPE_SECTION(invItem)
-	if TooltipHelper.indexTbl["Recipe"] == nil then
+	local cachedRecipes = TooltipHelper.indexTbl["Recipe"]
+	if cachedRecipes == nil then
 		cache.recipeList()
 	end
 
-	local subTbl = TooltipHelper.indexTbl["Recipe"][invItem.ClassName];
+	local subTbl = cachedRecipes[invItem.ClassName];
 	if subTbl == nil then
 		return ""
 	end
@@ -191,7 +242,7 @@ function RECIPE_SECTION(invItem)
 	local partOfRecipe = {};
 	local superClsList = {};
 
-	for _, classType in ipairs(TooltipHelper.indexTbl["Recipe"]["types"]) do
+	for _, classType in ipairs(cachedRecipes["types"]) do
 		superClsList[classType] = GetClassList(classType);
 	end
 
@@ -233,7 +284,7 @@ function RECIPE_SECTION(invItem)
 		text = util.toIMCTemplate(itemName, acutil.getItemRarityColor(resultItem))
 
 		if isCrafted then
-			text = text .. util.addIcon("", resultItem.Icon)
+			text = text .. util.addIcon("", resultItem.TooltipImage or resultItem.Icon)
 		elseif not isRegistered then
 			text = util.toIMCTemplate(itemName, util.unregisteredColor)
 		end
@@ -383,11 +434,12 @@ function MAGNUM_OPUS_SECTION(invItem)
 end
 
 function ITEM_DROP_SECTION(invItem)
-	if TooltipHelper.indexTbl["Drops"] == nil then
+	local cachedDrops = TooltipHelper.indexTbl["Drops"]
+	if cachedDrops == nil then
 		cache.dropList();
 	end
 	
-	local subTbl = TooltipHelper.indexTbl["Drops"][invItem.ClassName];
+	local subTbl = cachedDrops[invItem.ClassName];
 	if subTbl == nil then
 		return ""
 	end
@@ -430,11 +482,12 @@ end
 end
 
 function TP_MEDAL_EXCHANGE(invItem)
-	if TooltipHelper.indexTbl["Premium"] == nil then
+	local cachedMedalItems = TooltipHelper.indexTbl["Premium"]
+	if cachedMedalItems == nil then
 		cache.tpItems();
 	end
 	
-	local subTbl = TooltipHelper.indexTbl["Premium"][invItem.ClassName];
+	local subTbl = cachedMedalItems[invItem.ClassName];
 	if subTbl == nil then return ""	end
 	
 	local clsList, cnt = GetClassList("recycle_shop");
@@ -497,7 +550,7 @@ function REIDENTIFICATION(invItem)
 end
 
 function AWAKENING(invItem)
-	if invItem.ItemType ~= "Equip" then return "" end
+	if invItem.ItemType ~= "Equip" or invItem.EqpType == "WING" or invItem.EqpType == "SPECIALCOSTUME" then return "" end
 	
 	local needItem, needCount = GET_ITEM_AWAKENING_PRICE(invItem)
 	local itemCls = GetClass('Item', needItem);
@@ -544,27 +597,17 @@ function CUBE_REROLL_PRICE(invItem)
 	end
 end
 
-function CUSTOM_TOOLTIP_PROPS(tooltipFrame, mainFrameName, invItem, strArg, useSubFrame)
-    local gBox = GET_CHILD(tooltipFrame, mainFrameName,'ui::CGroupBox');
-    
-    local yPos = gBox:GetY() + gBox:GetHeight();
-    
-    local leftTextCtrl = gBox:CreateOrGetControl("richtext", 'text', 0, yPos, 410, 30);
-    tolua.cast(leftTextCtrl, "ui::CRichText");
-    
-	local main_addinfo = tooltipFrame:GetChild("equip_main_addinfo");
-	main_addinfo:SetOffset(main_addinfo:GetX(),tooltipFrame:GetHeight()/2);
-	local sub_addinfo = tooltipFrame:GetChild("equip_sub_addinfo");
-	sub_addinfo:SetOffset(sub_addinfo:GetX(),tooltipFrame:GetHeight()/2);
+function MAKE_TTH_INV_ITEM_DATA(invItem)
+	local buffer = {};
+	local labels = {}
 
-    local buffer = {};
     local text = "";
     
     --NPC Sell Price
     util.renderLabel(NPC_SELL_PRICE, true, invItem, labels);
     
     --Reroll Price
-    util.render(CUBE_REROLL_PRICE, true, buffer, invItem, text);
+    util.render(CUBE_REROLL_PRICE, TooltipHelper.config.showRerollPrice, buffer, invItem, text);
     
     --Journal stats
     util.renderLabel(JOURNAL_STATS, TooltipHelper.config.showJournalStats, invItem, labels);
@@ -579,17 +622,17 @@ function CUSTOM_TOOLTIP_PROPS(tooltipFrame, mainFrameName, invItem, strArg, useS
 	util.renderLabel(TP_MEDAL_EXCHANGE, TooltipHelper.config.showMedalExchange, invItem, labels);
 	
 	--Awakening
-	util.renderLabel(AWAKENING, true, invItem, labels)
+	util.renderLabel(AWAKENING, TooltipHelper.config.showAwakening, invItem, labels)
 	
     local headText = table.concat(labels,"{nl}")
     
     table.insert(buffer,headText);
     
     --Collection
-    util.render(COLLECTION_SECTION, TooltipHelper.config.showCollectionCustomTooltips, buffer, invItem, text)
+    util.render(COLLECTION_SECTION, TooltipHelper.config.showCollections, buffer, invItem, text)
       
     --Recipe
-    util.render(RECIPE_SECTION, TooltipHelper.config.showRecipeCustomTooltips, buffer, invItem, text)
+    util.render(RECIPE_SECTION, TooltipHelper.config.showRecipes, buffer, invItem, text)
    
     local rightText = ""
     local rightBuffer = {}
@@ -598,7 +641,7 @@ function CUSTOM_TOOLTIP_PROPS(tooltipFrame, mainFrameName, invItem, strArg, useS
     util.render(MAGNUM_OPUS_SECTION, TooltipHelper.config.showMagnumOpus, rightBuffer, invItem, rightText)
     
 	--Item Drop
-	util.render(ITEM_DROP_SECTION, TooltipHelper.config.showItemDrop, rightBuffer, invItem, rightText);
+	util.render(ITEM_DROP_SECTION, TooltipHelper.config.showItemDrops, rightBuffer, invItem, rightText);
 
     if #buffer == 1 and invItem.ItemType == "Equip" then
         text = headText
@@ -607,45 +650,10 @@ function CUSTOM_TOOLTIP_PROPS(tooltipFrame, mainFrameName, invItem, strArg, useS
         rightText = table.concat(rightBuffer,"{nl}")
     end
         
-    leftTextCtrl:SetText(text);
-	leftTextCtrl:SetMargin(20,gBox:GetHeight(),0,0);
-    leftTextCtrl:SetGravity(ui.LEFT, ui.TOP)
-    
-    if rightText ~= "" then
-    	local rightTextCtrl = gBox:CreateOrGetControl("richtext", 'text2', math.max(leftTextCtrl:GetWidth()+30,200), yPos, 410, 30);
-	    tolua.cast(rightTextCtrl, "ui::CRichText");
-	    rightTextCtrl:SetText(rightText)
-		--rightTextCtrl:SetMargin(0, gBox:GetHeight(),20,0)
-	    --rightTextCtrl:SetGravity(ui.RIGHT, ui.TOP)
-	    
-    	local width = leftTextCtrl:GetWidth() + rightTextCtrl:GetWidth() + 50;
-		width = math.max(width, gBox:GetWidth());
-	    if leftTextCtrl:GetHeight() > rightTextCtrl:GetHeight() then
-			gBox:Resize(width, gBox:GetHeight() + leftTextCtrl:GetHeight() + 10)
-	    else 
-			gBox:Resize(width, gBox:GetHeight() + rightTextCtrl:GetHeight() + 10)
-	    end
-	    
-	    local etcCommonTooltip = GET_CHILD(gBox, 'tooltip_etc_common');
-	    if etcCommonTooltip ~= nil then
-		    etcCommonTooltip:Resize(width, etcCommonTooltip:GetHeight())
-	    end
-	    
-    	local etcDescTooltip = GET_CHILD(gBox, 'tooltip_etc_desc');
-		if etcDescTooltip ~= nil then
-		    etcDescTooltip:Resize(width, etcDescTooltip:GetHeight())
-	    end	
-		if string.sub(mainFrameName, #mainFrameName - 3) == "_sub" then
-			local widthdif = gBox:GetWidth() - gBox:GetOriginalWidth();
-			gBox:SetOffset(gBox:GetX() - widthdif, gBox:GetY());
-		end
-    else
-	    gBox:Resize(gBox:GetWidth(), gBox:GetHeight() + leftTextCtrl:GetHeight() + 10)
-    end
-    
     buffer = {}
-    text = ""
-    return leftTextCtrl:GetHeight() + leftTextCtrl:GetY();
+    rightBuffer = {}
+    
+	return text, rightText
 end
 
 function TOOLTIPHELPER_INIT()
@@ -666,13 +674,24 @@ function TOOLTIPHELPER_INIT()
 			cache.tpItems();
 		end
 		
-		acutil.setupHook(ITEM_TOOLTIP_EQUIP_HOOKED, "ITEM_TOOLTIP_EQUIP");
+		TooltipHelper.magnumOpusRecipes = cache.loadMagnumOpus() or TooltipHelper.magnumOpusRecipes
+		
+		acutil.setupHook(DRAW_SELL_PRICE_HOOKED, "DRAW_SELL_PRICE");
+		acutil.setupHook(GET_USEJOB_TOOLTIP_HOOKED, "GET_USEJOB_TOOLTIP");
+		acutil.setupHook(DRAW_AVAILABLE_PROPERTY_HOOKED, "DRAW_AVAILABLE_PROPERTY")
+		acutil.setupHook(DRAW_EQUIP_PR_N_DUR_HOOKED, "DRAW_EQUIP_PR_N_DUR")
+		acutil.setupHook(DRAW_EQUIP_ONLY_PR_HOOKED, "DRAW_EQUIP_ONLY_PR")
+
+		acutil.setupHook(DRAW_ITEM_TYPE_N_WEIGHT_HOOKED, "DRAW_ITEM_TYPE_N_WEIGHT");
+		acutil.setupHook(DRAW_EQUIP_COMMON_TOOLTIP_HOOKED, "DRAW_EQUIP_COMMON_TOOLTIP");
+		acutil.setupHook(DRAW_EQUIP_ATK_N_DEF_HOOKED, "DRAW_EQUIP_ATK_N_DEF");
+		
 		acutil.setupHook(ITEM_TOOLTIP_ETC_HOOKED, "ITEM_TOOLTIP_ETC");
 		acutil.setupHook(ITEM_TOOLTIP_BOSSCARD_HOOKED, "ITEM_TOOLTIP_BOSSCARD");
 		acutil.setupHook(ITEM_TOOLTIP_GEM_HOOKED, "ITEM_TOOLTIP_GEM");
+		acutil.setupHook(ITEM_TOOLTIP_EQUIP_HOOKED, "ITEM_TOOLTIP_EQUIP");
 		
 		TooltipHelper.isLoaded = true
-		
 		acutil.log("Tooltip helper loaded!")
 	end
 end

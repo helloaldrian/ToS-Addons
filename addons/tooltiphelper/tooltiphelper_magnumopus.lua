@@ -1,5 +1,5 @@
-local tooltiphelper_magnumopus = {
-   misc_0139={
+local default_magnum_opus = {
+	misc_0139={
       {
          row=0,
          name="misc_0132",
@@ -5867,4 +5867,5 @@ local tooltiphelper_magnumopus = {
       }
    }
 }
-return tooltiphelper_magnumopus;
+
+return default_magnum_opus

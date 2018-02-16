@@ -1,25 +1,21 @@
 local acutil = require('acutil');
-local tthUtil = dofile('../addons/devloader/tooltiphelper_util.lua');
-local tthDefaultMO = dofile('../addons/devloader/tooltiphelper_magnumopus.lua');
+local util = dofile('../data/addon_d/tooltiphelper/tooltiphelper_util.lua')
 
 if not TooltipHelper then
 	TooltipHelper = _G["ADDONS"]["TOOLTIPHELPER"] or {}
 	TooltipHelper.indexTbl = {}
+	TooltipHelper.magnumOpusRecipes = {}
 end
 
 local tooltiphelper_cache = {
-	configureData = function(filePath, dataTable, latestVersion, fnArg)
+	configureData = function(filePath, dataTable, latestVersion)
 		local file, err = acutil.loadJSON(filePath, dataTable);
-		if fnArg == nil and (err or (not file.version or (file.version ~= latestVersion))) then
+		if (err or (not file.version or (file.version ~= latestVersion))) then
 			acutil.saveJSON(filePath, dataTable);
-		elseif err then
-			dataTable = fnArg()			
-			acutil.saveJSON(filePath, dataTable);
+			return dataTable
 		else
-		    dataTable = file; 
+		    return file; 
 		end
-		
-		return dataTable
 	end,
 	
 	loadMagnumOpus = function ()
@@ -27,7 +23,7 @@ local tooltiphelper_cache = {
 		local magnumOpusRecipes = {}
 		if not status then
 			acutil.log("Unable to load xmlSimple, using default recipes")
-			return tthDefaultMO
+			return 
 		end
 		
 		local magnumOpusXML = "../addons/tooltiphelper/recipe_puzzle.xml";
@@ -35,7 +31,7 @@ local tooltiphelper_cache = {
 		
 		if recipeXml == nil then
 			acutil.log("Magnum Opus recipe file not found, using default recipes");
-			return tthDefaultMO
+			return 
 		end
 		
 		local recipes = recipeXml["Recipe_Puzzle"]:children();
@@ -59,6 +55,7 @@ local tooltiphelper_cache = {
 	end,
 	
 	recipeList = function()
+		acutil.log("Caching recipes")
 		TooltipHelper.indexTbl["Recipe"] = {types = {"Recipe", "Recipe_ItemCraft", "ItemTradeShop"}};
 		local typeTbl = TooltipHelper.indexTbl["Recipe"];
 		
@@ -85,7 +82,7 @@ local tooltiphelper_cache = {
 						typeTbl[itemName] = {};
 					end
 
-					if tthUtil.contains(countingTbl, itemName) then break end
+					if util.contains(countingTbl, itemName) then break end
 
 					local grade = resultItem.ItemGrade;
 					if grade == 'None' or grade == nil then
@@ -103,11 +100,12 @@ local tooltiphelper_cache = {
 		end
 		for k, t in pairs(typeTbl) do repeat
 			if k == "types" then break end;
-			table.sort(t, tthUtil.compare);
+			table.sort(t, util.compare);
 		until true end
 	end,
 	
 	dropList = function()
+		acutil.log("Caching drops")
 		TooltipHelper.indexTbl["Drops"] = {};
 		local typeTbl = TooltipHelper.indexTbl["Drops"];
 		local clsList, cnt = GetClassList("Monster");
@@ -153,11 +151,12 @@ local tooltiphelper_cache = {
 			until true end
 		until true end
 		for _, t in pairs(typeTbl) do
-			table.sort(t, tthUtil.chanceCompare);
+			table.sort(t, util.chanceCompare);
 		end
 	end,
 	
 	collectionList = function()
+		acutil.log("Caching collections")
 		TooltipHelper.indexTbl["Collection"] = {};
 		local typeTbl = TooltipHelper.indexTbl["Collection"];
 		local clsList, cnt = GetClassList("Collection");
@@ -177,7 +176,7 @@ local tooltiphelper_cache = {
 					typeTbl[itemName] = {};
 				end
 	
-				if tthUtil.contains(countingTbl, itemName) then break end
+				if util.contains(countingTbl, itemName) then break end
 				table.insert(countingTbl, itemName);
 				table.insert(typeTbl[itemName], {idx = i});
 			end
@@ -185,6 +184,7 @@ local tooltiphelper_cache = {
 	end,
 	
 	tpItems = function()
+		acutil.log("Caching medal items")
 		TooltipHelper.indexTbl["Premium"] = {};
 		local typeTbl = TooltipHelper.indexTbl["Premium"];
 		local clsList, cnt = GetClassList("recycle_shop");
@@ -199,7 +199,7 @@ local tooltiphelper_cache = {
 				typeTbl[itemName] = {};
 			end
 			
-			if tthUtil.contains(countingTbl, itemName) then break end
+			if util.contains(countingTbl, itemName) then break end
 			table.insert(countingTbl, itemName);
 			table.insert(typeTbl[itemName], {idx = i, name = itemName, sellPrice = sellPrice} );
 		until true end
